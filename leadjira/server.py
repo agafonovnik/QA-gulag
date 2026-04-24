@@ -485,7 +485,7 @@ HTML = """<!DOCTYPE html>
 
     .lane {
       position: relative;
-      min-height: 142px;
+      min-height: 168px;
       border-radius: 22px;
       background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0.02)),
@@ -507,7 +507,7 @@ HTML = """<!DOCTYPE html>
 
     .task-group {
       position: absolute;
-      top: 0;
+      height: 82px;
     }
 
     .task {
@@ -545,7 +545,7 @@ HTML = """<!DOCTYPE html>
     .task-status {
       position: absolute;
       right: -10px;
-      bottom: -10px;
+      bottom: 2px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
@@ -596,18 +596,8 @@ HTML = """<!DOCTYPE html>
       padding: 5px 9px;
     }
 
-    .task-line {
-      position: absolute;
-      left: 0;
-      right: 0;
-      top: 76px;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.1);
-    }
-
     .gap {
       position: absolute;
-      top: 98px;
       height: 26px;
       border-radius: 999px;
       display: flex;
@@ -1007,32 +997,71 @@ HTML = """<!DOCTYPE html>
             <small>Суммарно в статусе: ${totalLabel}</small>
           </div>
           <div class="lane">
-            <div class="lane-inner">
-              <div class="task-line"></div>
-            </div>
+            <div class="lane-inner"></div>
           </div>
         `;
 
         const laneInner = wrapper.querySelector(".lane-inner");
         const laneWidth = laneInner.clientWidth || 1;
-        row.segments.forEach((segment, segmentIndex) => {
-          const left = ((new Date(segment.start_iso).getTime() - start) / total) * 100;
-          const width = ((new Date(segment.end_iso).getTime() - new Date(segment.start_iso).getTime()) / total) * 100;
-          const widthPx = (width / 100) * laneWidth;
+        const levelWidth = [];
+        const levelHeight = 82;
+        const lanePlacements = row.segments.map((segment, segmentIndex) => {
+          const startMs = new Date(segment.start_iso).getTime();
+          const endMs = new Date(segment.end_iso).getTime();
+          const actualLeftPx = ((startMs - start) / total) * laneWidth;
+          const actualWidthPx = Math.max(((endMs - startMs) / total) * laneWidth, 4);
+          const density = actualWidthPx < 82 ? "tight" : actualWidthPx < 148 ? "compact" : "full";
+          const visualWidthPx =
+            density === "tight" ? Math.max(actualWidthPx, 104) :
+            density === "compact" ? Math.max(actualWidthPx, 136) :
+            actualWidthPx;
+          const outcomeLabel = buildOutcomeLabel(segment.next_status);
+          const statusWidthPx = Math.min(
+            176,
+            Math.max(density === "tight" ? 72 : 88, outcomeLabel.length * (density === "tight" ? 5.4 : 6.3) + 24)
+          );
+          const clampedLeftPx = Math.min(
+            Math.max(actualLeftPx, 0),
+            Math.max(laneWidth - visualWidthPx - 2, 0)
+          );
+          const footprintStart = Math.min(clampedLeftPx, clampedLeftPx + visualWidthPx - statusWidthPx - 10);
+          const footprintEnd = clampedLeftPx + visualWidthPx + 10;
+          let level = 0;
+          while (levelWidth[level] !== undefined && footprintStart < levelWidth[level] + 8) {
+            level += 1;
+          }
+          levelWidth[level] = footprintEnd;
+          return {
+            segment,
+            segmentIndex,
+            density,
+            outcomeLabel,
+            leftPx: clampedLeftPx,
+            widthPx: visualWidthPx,
+            topPx: level * levelHeight,
+            level,
+          };
+        });
+
+        const levelCount = Math.max(...lanePlacements.map((item) => item.level), 0) + 1;
+        const gapTopPx = 14 + levelCount * levelHeight;
+        wrapper.querySelector(".lane").style.minHeight = `${Math.max(168, gapTopPx + 52)}px`;
+
+        lanePlacements.forEach((placement) => {
+          const { segment, segmentIndex, density, outcomeLabel, leftPx, widthPx, topPx } = placement;
           const color = palette[(rowIndex + segmentIndex) % palette.length];
           const group = document.createElement("div");
           group.className = "task-group";
-          group.style.left = `${left}%`;
-          group.style.width = `${Math.max(width, 0.35)}%`;
+          group.style.left = `${leftPx}px`;
+          group.style.top = `${topPx}px`;
+          group.style.width = `${widthPx}px`;
           group.title = `${segment.issue_key}: ${segment.summary}`;
 
           const task = document.createElement("div");
           task.className = "task";
           task.style.width = "100%";
           task.style.background = `linear-gradient(135deg, ${color}, #ffffff)`;
-          const density = widthPx < 110 ? "tight" : widthPx < 170 ? "compact" : "full";
           if (density !== "full") task.classList.add(density);
-          const outcomeLabel = buildOutcomeLabel(segment.next_status);
           task.innerHTML = `
             <span class="task-key">${segment.issue_key}</span>
             <span class="task-meta">${buildTaskMeta(segment, density)}</span>
@@ -1044,12 +1073,16 @@ HTML = """<!DOCTYPE html>
           group.appendChild(task);
           group.appendChild(status);
           laneInner.appendChild(group);
+        });
 
+        row.segments.forEach((segment) => {
           if (segment.gap_minutes > 0) {
+            const gapStartPx = ((new Date(segment.start_iso).getTime() - start) / total) * laneWidth;
             const gap = document.createElement("div");
             gap.className = "gap";
-            gap.style.left = `${Math.max(left - 7, 0)}%`;
-            gap.style.width = "64px";
+            gap.style.top = `${gapTopPx}px`;
+            gap.style.left = `${Math.max(gapStartPx - 28, 0)}px`;
+            gap.style.width = "74px";
             gap.textContent = `${segment.gap_minutes}m gap`;
             laneInner.appendChild(gap);
           }
