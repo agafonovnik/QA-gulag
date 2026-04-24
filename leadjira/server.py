@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 from leadjira.analytics import build_dashboard_data
 from leadjira.config import SETTINGS
-from leadjira.jira_provider import load_issues
+from leadjira.jira_provider import build_effective_jql, load_issues
 
 
 HTML = """<!DOCTYPE html>
@@ -220,6 +220,19 @@ HTML = """<!DOCTYPE html>
       display: block;
       margin-top: 6px;
       word-break: break-all;
+    }
+
+    .config-box textarea {
+      width: 100%;
+      margin-top: 12px;
+      min-height: 108px;
+      resize: vertical;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text);
+      font: 12px/1.45 "SF Mono", "Menlo", monospace;
     }
 
     .filter-group {
@@ -786,6 +799,7 @@ HTML = """<!DOCTYPE html>
         Jira config:
         <code>LEADJIRA_JIRA_URL=__BASE_URL__</code>
         <code>LEADJIRA_JIRA_TOKEN=***</code>
+        <textarea id="currentJql" readonly spellcheck="false" aria-label="Current JQL"></textarea>
       </div>
 
       <div class="filter-group">
@@ -885,7 +899,7 @@ HTML = """<!DOCTYPE html>
     function buildTaskMeta(segment, density) {
       const range = `${segment.start_label}-${segment.end_label}`;
       const duration = formatMinutes(segment.duration_minutes);
-      if (density === "tight") return duration;
+      if (density === "tight") return range;
       if (density === "compact") return range;
       return `${range} · ${duration}`;
     }
@@ -945,6 +959,7 @@ HTML = """<!DOCTYPE html>
       const peopleChips = el("peopleChips");
       peopleChips.innerHTML = "";
       availablePeople.forEach((person) => buildChip(peopleChips, person, state.selectedPeople));
+      el("currentJql").value = filters.current_jql || "Mock mode: JQL is not used";
     }
 
     function renderSummary(summary, filters) {
@@ -1201,6 +1216,7 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
         group_mode = params.get("group_mode", ["transition_author"])[0]
 
         try:
+            current_jql = build_effective_jql(SETTINGS, selected_day)
             payload = build_dashboard_data(
                 issues=load_issues(SETTINGS, selected_day),
                 selected_day=selected_day,
@@ -1209,6 +1225,7 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
                 target_status=target_status,
                 group_mode=group_mode,
             )
+            payload["filters"]["current_jql"] = current_jql if SETTINGS.source_mode.lower() == "jira" else "Mock mode: JQL is not used"
             status = HTTPStatus.OK
         except Exception as exc:
             payload = {"error": str(exc)}
