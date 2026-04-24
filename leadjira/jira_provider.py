@@ -31,7 +31,7 @@ def load_issues(settings: JiraSettings, selected_day: date) -> tuple[Issue, ...]
         expand="changelog",
         maxResults=settings.max_results,
     )
-    return tuple(_convert_issue(issue, settings) for issue in issues)
+    return tuple(_convert_issue(jira_client, issue, settings) for issue in issues)
 
 
 def build_effective_jql(settings: JiraSettings, selected_day: date) -> str:
@@ -68,7 +68,7 @@ def _format_jql_datetime(value: datetime) -> str:
     return value.strftime("%Y-%m-%d %H:%M")
 
 
-def _convert_issue(raw_issue, settings: JiraSettings) -> Issue:
+def _convert_issue(jira_client, raw_issue, settings: JiraSettings) -> Issue:
     fields = raw_issue.fields
     assignee = getattr(getattr(fields, "assignee", None), "displayName", "Unassigned")
     priority = getattr(getattr(fields, "priority", None), "name", "Unknown")
@@ -76,7 +76,7 @@ def _convert_issue(raw_issue, settings: JiraSettings) -> Issue:
     summary = getattr(fields, "summary", raw_issue.key)
     created_at = _parse_jira_datetime(getattr(fields, "created", None), settings.timezone)
     story_points = _read_story_points(fields, settings.story_points_field)
-    events = tuple(_extract_status_events(raw_issue, settings.timezone))
+    events = tuple(_extract_status_events(jira_client, raw_issue, settings.timezone))
 
     return Issue(
         key=raw_issue.key,
@@ -90,24 +90,52 @@ def _convert_issue(raw_issue, settings: JiraSettings) -> Issue:
     )
 
 
-def _extract_status_events(raw_issue, timezone_name: str) -> list[IssueEvent]:
-    histories = getattr(getattr(raw_issue, "changelog", None), "histories", []) or []
+def _extract_status_events(jira_client, raw_issue, timezone_name: str) -> list[IssueEvent]:
+    histories = _load_full_histories(jira_client, raw_issue)
     status_events: list[IssueEvent] = []
     for history in histories:
-        created = _parse_jira_datetime(getattr(history, "created", None), timezone_name)
-        author = getattr(getattr(history, "author", None), "displayName", "Unknown")
-        for item in getattr(history, "items", []) or []:
-            if getattr(item, "field", None) != "status":
+        created = _parse_jira_datetime(_value(history, "created"), timezone_name)
+        author_data = _value(history, "author")
+        author = _value(author_data, "displayName", "Unknown") if author_data else "Unknown"
+        for item in _value(history, "items", []) or []:
+            if _value(item, "field") != "status":
                 continue
             status_events.append(
                 IssueEvent(
                     at=created,
-                    from_status=getattr(item, "fromString", None) or "Unknown",
-                    to_status=getattr(item, "toString", None) or "Unknown",
+                    from_status=_value(item, "fromString", "Unknown") or "Unknown",
+                    to_status=_value(item, "toString", "Unknown") or "Unknown",
                     author=author,
                 )
             )
     return sorted(status_events, key=lambda event: event.at)
+
+
+def _load_full_histories(jira_client, raw_issue) -> list:
+    changelog = getattr(raw_issue, "changelog", None)
+    histories = list(getattr(changelog, "histories", []) or [])
+    total = getattr(changelog, "total", None)
+    if total is None or total <= len(histories):
+        return histories
+
+    start_at = len(histories)
+    while start_at < total:
+        page = jira_client._get_json(
+            f"issue/{raw_issue.key}/changelog",
+            params={"startAt": start_at, "maxResults": 100},
+        )
+        values = page.get("values", [])
+        if not values:
+            break
+        histories.extend(values)
+        start_at += len(values)
+    return histories
+
+
+def _value(obj, field: str, default=None):
+    if isinstance(obj, dict):
+        return obj.get(field, default)
+    return getattr(obj, field, default)
 
 
 def _parse_jira_datetime(value: str | None, timezone_name: str) -> datetime:
