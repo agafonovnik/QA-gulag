@@ -14,7 +14,7 @@ def _fallback_segment_end(start_at: datetime, selected_day: date, current_time: 
     return max(start_at, day_end)
 
 
-def _end_of_segment(issue: Issue, start_index: int, selected_day: date, current_time: datetime) -> datetime:
+def _actual_end_of_segment(issue: Issue, start_index: int, selected_day: date, current_time: datetime) -> datetime:
     next_index = start_index + 1
     if next_index < len(issue.events):
         return issue.events[next_index].at
@@ -36,6 +36,18 @@ def _group_name(issue: Issue, event_author: str, group_mode: str) -> str:
 
 def _normalize_status(status: str) -> str:
     return " ".join((status or "").strip().lower().split())
+
+
+def _format_segment_label(value: datetime, selected_day: date, include_date: bool) -> str:
+    if include_date or value.date() != selected_day:
+        return value.strftime("%d.%m %H:%M")
+    return value.strftime("%H:%M")
+
+
+def _clamp_timeline_end(value: datetime, selected_day: date) -> datetime:
+    day_last_hour = datetime.combine(selected_day, time(23, 0))
+    rounded = (value + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    return min(rounded, day_last_hour)
 
 
 def build_dashboard_data(
@@ -79,8 +91,9 @@ def build_dashboard_data(
             if people and owner not in people:
                 continue
 
-            end_at = _end_of_segment(issue, index, selected_day, now)
-            duration_minutes = max(int((end_at - event.at).total_seconds() // 60), 1)
+            actual_end_at = _actual_end_of_segment(issue, index, selected_day, now)
+            display_end_at = min(actual_end_at, day_end)
+            duration_minutes = max(int((display_end_at - event.at).total_seconds() // 60), 1)
             segments_by_person[owner].append(
                 {
                     "issue_key": issue.key,
@@ -91,7 +104,8 @@ def build_dashboard_data(
                     "priority": issue.priority,
                     "story_points": issue.story_points,
                     "start": event.at,
-                    "end": end_at,
+                    "actual_end": actual_end_at,
+                    "display_end": display_end_at,
                     "next_status": _next_status(issue, index, target_status),
                     "duration_minutes": duration_minutes,
                 }
@@ -112,14 +126,19 @@ def build_dashboard_data(
             if previous_end is not None:
                 gap_minutes = max(int((segment["start"] - previous_end).total_seconds() // 60), 0)
                 gaps.append(gap_minutes)
-            previous_end = segment["end"]
+            previous_end = segment["display_end"]
             durations.append(segment["duration_minutes"])
+            spills_over_day = segment["actual_end"].date() != selected_day or segment["actual_end"] > day_end
+            start_display_label = _format_segment_label(segment["start"], selected_day, spills_over_day)
+            end_display_label = _format_segment_label(segment["actual_end"], selected_day, spills_over_day)
 
             row_segment = {
                 "start_iso": segment["start"].isoformat(),
-                "end_iso": segment["end"].isoformat(),
+                "end_iso": segment["display_end"].isoformat(),
+                "actual_end_iso": segment["actual_end"].isoformat(),
                 "start_label": segment["start"].strftime("%H:%M"),
-                "end_label": segment["end"].strftime("%H:%M"),
+                "end_label": segment["display_end"].strftime("%H:%M"),
+                "range_label": f"{start_display_label}-{end_display_label}",
                 "issue_key": segment["issue_key"],
                 "summary": segment["summary"],
                 "project": segment["project"],
@@ -130,12 +149,13 @@ def build_dashboard_data(
                 "next_status": segment["next_status"],
                 "duration_minutes": segment["duration_minutes"],
                 "gap_minutes": gap_minutes,
+                "spills_over_day": spills_over_day,
             }
             row_segments.append(row_segment)
             all_segments.append(
                 {
                     "start": segment["start"],
-                    "end": segment["end"],
+                    "end": segment["display_end"],
                     **row_segment,
                 }
             )
@@ -154,7 +174,7 @@ def build_dashboard_data(
     timeline_start = min((segment["start"] for segment in all_segments), default=day_start.replace(hour=9))
     timeline_end = max((segment["end"] for segment in all_segments), default=day_start.replace(hour=18))
     timeline_start = timeline_start.replace(minute=0, second=0, microsecond=0)
-    timeline_end = (timeline_end + timedelta(hours=1)).replace(minute=0, second=0, microsecond=0)
+    timeline_end = _clamp_timeline_end(timeline_end, selected_day)
 
     hours: list[str] = []
     cursor = timeline_start
