@@ -765,7 +765,6 @@ HTML = """<!DOCTYPE html>
       <div class="config-box">
         Jira config:
         <code>LEADJIRA_JIRA_URL=__BASE_URL__</code>
-        <code>LEADJIRA_JIRA_EMAIL=__USER_EMAIL__</code>
         <code>LEADJIRA_JIRA_TOKEN=***</code>
       </div>
 
@@ -1117,7 +1116,6 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
     def _send_html(self) -> None:
         body = (
             HTML.replace("__BASE_URL__", SETTINGS.base_url)
-            .replace("__USER_EMAIL__", SETTINGS.user_email)
             .encode("utf-8")
         )
         self.send_response(HTTPStatus.OK)

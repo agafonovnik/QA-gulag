@@ -9,8 +9,6 @@ class JiraSettings:
     source_mode: str = os.getenv("LEADJIRA_SOURCE", "mock")
     base_url: str = os.getenv("LEADJIRA_JIRA_URL", "https://your-jira.example.com")
     api_token: str = os.getenv("LEADJIRA_JIRA_TOKEN", "set-me")
-    user_email: str = os.getenv("LEADJIRA_JIRA_EMAIL", "teamlead@example.com")
-    auth_mode: str = os.getenv("LEADJIRA_JIRA_AUTH_MODE", "auto")
     jql: str = os.getenv(
         "LEADJIRA_DEFAULT_JQL",
         "project in (CORE, API, UI) AND statusCategory != Done ORDER BY updated DESC",

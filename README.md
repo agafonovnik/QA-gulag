@@ -23,9 +23,7 @@ python3 main.py
 
 - `LEADJIRA_SOURCE` (`mock` или `jira`)
 - `LEADJIRA_JIRA_URL`
-- `LEADJIRA_JIRA_EMAIL`
 - `LEADJIRA_JIRA_TOKEN`
-- `LEADJIRA_JIRA_AUTH_MODE` (`auto`, `basic`, `token`)
 - `LEADJIRA_DEFAULT_JQL`
 - `LEADJIRA_TARGET_STATUS`
 - `LEADJIRA_TIMEZONE`
@@ -44,11 +42,9 @@ python3 main.py
 ```bash
 export LEADJIRA_SOURCE=jira
 export LEADJIRA_JIRA_URL="https://your-jira.example.com"
-export LEADJIRA_JIRA_EMAIL="you@example.com"
 export LEADJIRA_JIRA_TOKEN="your-token"
-export LEADJIRA_JIRA_AUTH_MODE=auto
 export LEADJIRA_DEFAULT_JQL='project = CORE ORDER BY updated DESC'
 python3 main.py
 ```
 
-В режиме `jira` приложение использует библиотеку `jira`, делает `search_issues(..., expand="changelog")` и строит таймлайн по истории переходов статусов.
+В режиме `jira` приложение использует библиотеку `jira`, создает клиент через `JIRA(options=..., token_auth=...)`, делает `search_issues(..., expand="changelog")` и строит таймлайн по истории переходов статусов.

@@ -23,7 +23,7 @@ def load_issues(settings: JiraSettings) -> tuple[Issue, ...]:
         "server": settings.base_url,
         "verify": settings.verify_ssl,
     }
-    jira_client = _build_client(JIRA, options, settings)
+    jira_client = JIRA(options=options, token_auth=settings.api_token)
     issues = jira_client.search_issues(
         jql_str=settings.jql,
         fields="summary,project,assignee,priority,created",
@@ -31,24 +31,6 @@ def load_issues(settings: JiraSettings) -> tuple[Issue, ...]:
         maxResults=settings.max_results,
     )
     return tuple(_convert_issue(issue, settings) for issue in issues)
-
-
-def _build_client(jira_class, options: dict, settings: JiraSettings):
-    auth_mode = settings.auth_mode.lower()
-    if auth_mode == "basic":
-        return jira_class(options=options, basic_auth=(settings.user_email, settings.api_token))
-    if auth_mode == "token":
-        return jira_class(options=options, token_auth=settings.api_token)
-
-    # Auto mode: Jira Cloud usually expects email+API token, self-hosted often works with token auth.
-    if settings.user_email and "atlassian.net" in settings.base_url:
-        return jira_class(options=options, basic_auth=(settings.user_email, settings.api_token))
-    if settings.user_email and settings.api_token:
-        try:
-            return jira_class(options=options, basic_auth=(settings.user_email, settings.api_token))
-        except Exception:
-            return jira_class(options=options, token_auth=settings.api_token)
-    return jira_class(options=options, token_auth=settings.api_token)
 
 
 def _convert_issue(raw_issue, settings: JiraSettings) -> Issue:
