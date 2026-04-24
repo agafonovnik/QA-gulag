@@ -1000,9 +1000,10 @@ HTML = """<!DOCTYPE html>
             <div class="lane-inner"></div>
           </div>
         `;
+        rows.appendChild(wrapper);
 
         const laneInner = wrapper.querySelector(".lane-inner");
-        const laneWidth = laneInner.clientWidth || 1;
+        const laneWidth = laneInner.getBoundingClientRect().width || 1;
         const levelWidth = [];
         const levelHeight = 82;
         const lanePlacements = row.segments.map((segment, segmentIndex) => {
@@ -1100,8 +1101,6 @@ HTML = """<!DOCTYPE html>
           `;
           issuesGrid.appendChild(issueCard);
         });
-
-        rows.appendChild(wrapper);
       });
     }
 
@@ -1203,7 +1202,7 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
 
         try:
             payload = build_dashboard_data(
-                issues=load_issues(SETTINGS),
+                issues=load_issues(SETTINGS, selected_day),
                 selected_day=selected_day,
                 projects=projects,
                 people=people,

@@ -18,6 +18,8 @@ class JiraSettings:
     verify_ssl: bool = os.getenv("LEADJIRA_VERIFY_SSL", "true").lower() == "true"
     max_results: int = int(os.getenv("LEADJIRA_MAX_RESULTS", "100"))
     story_points_field: str = os.getenv("LEADJIRA_STORY_POINTS_FIELD", "customfield_10016")
+    lookback_hours: int = int(os.getenv("LEADJIRA_LOOKBACK_HOURS", "12"))
+    workday_start_hour: int = int(os.getenv("LEADJIRA_WORKDAY_START_HOUR", "9"))
     app_host: str = os.getenv("LEADJIRA_HOST", "127.0.0.1")
     app_port: int = int(os.getenv("LEADJIRA_PORT", "8765"))
 
