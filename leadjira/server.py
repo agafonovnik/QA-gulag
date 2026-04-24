@@ -540,6 +540,27 @@ HTML = """<!DOCTYPE html>
       box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
     }
 
+    .task.spills-over::after {
+      content: "";
+      position: absolute;
+      top: 8px;
+      bottom: 8px;
+      right: 0;
+      width: 18px;
+      border-radius: 10px 14px 14px 10px;
+      background:
+        linear-gradient(90deg, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0.38)),
+        repeating-linear-gradient(
+          135deg,
+          rgba(4, 17, 27, 0.06) 0,
+          rgba(4, 17, 27, 0.06) 4px,
+          rgba(255, 255, 255, 0.18) 4px,
+          rgba(255, 255, 255, 0.18) 8px
+        );
+      border-left: 1px dashed rgba(4, 17, 27, 0.28);
+      pointer-events: none;
+    }
+
     .task .task-key {
       font-size: 17px;
       line-height: 1;
@@ -897,7 +918,7 @@ HTML = """<!DOCTYPE html>
     }
 
     function buildTaskMeta(segment, density) {
-      const range = `${segment.start_label}-${segment.end_label}`;
+      const range = segment.range_label || `${segment.start_label}-${segment.end_label}`;
       const duration = formatMinutes(segment.duration_minutes);
       if (density === "tight") return range;
       if (density === "compact") return range;
@@ -1078,6 +1099,7 @@ HTML = """<!DOCTYPE html>
           task.style.width = "100%";
           task.style.background = `linear-gradient(135deg, ${color}, #ffffff)`;
           if (density !== "full") task.classList.add(density);
+          if (segment.spills_over_day) task.classList.add("spills-over");
           task.innerHTML = `
             <span class="task-key">${segment.issue_key}</span>
             <span class="task-meta">${buildTaskMeta(segment, density)}</span>
@@ -1111,7 +1133,7 @@ HTML = """<!DOCTYPE html>
               <span class="pill outcome ${getOutcomeTone(segment.next_status)}">${buildOutcomeLabel(segment.next_status)}</span>
             </div>
             <h4>${segment.issue_key} · ${segment.summary}</h4>
-            <p>${row.person} · ${segment.start_label}-${segment.end_label} · ${formatMinutes(segment.duration_minutes)}</p>
+            <p>${row.person} · ${segment.range_label} · ${formatMinutes(segment.duration_minutes)}</p>
             <p>Исполнитель: ${segment.assignee}. Перевел в статус: ${segment.actor}. Следующий статус: ${segment.next_status}. ${segment.story_points} SP.</p>
           `;
           issuesGrid.appendChild(issueCard);
