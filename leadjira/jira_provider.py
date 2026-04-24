@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from datetime import datetime
+import re
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from leadjira.config import JiraSettings
 from leadjira.mock_data import Issue, IssueEvent, MOCK_ISSUES
 
 
-def load_issues(settings: JiraSettings) -> tuple[Issue, ...]:
+def load_issues(settings: JiraSettings, selected_day: date) -> tuple[Issue, ...]:
     if settings.source_mode.lower() != "jira":
         return MOCK_ISSUES
 
@@ -25,12 +26,46 @@ def load_issues(settings: JiraSettings) -> tuple[Issue, ...]:
     }
     jira_client = JIRA(options=options, token_auth=settings.api_token)
     issues = jira_client.search_issues(
-        jql_str=settings.jql,
+        jql_str=build_effective_jql(settings, selected_day),
         fields="summary,project,assignee,priority,created",
         expand="changelog",
         maxResults=settings.max_results,
     )
     return tuple(_convert_issue(issue, settings) for issue in issues)
+
+
+def build_effective_jql(settings: JiraSettings, selected_day: date) -> str:
+    start_at = datetime.combine(selected_day, time(hour=settings.workday_start_hour))
+    end_at = start_at + timedelta(hours=settings.lookback_hours)
+    updated_clause = f'updated >= "{_format_jql_datetime(start_at)}" AND updated <= "{_format_jql_datetime(end_at)}"'
+
+    body, order_by = _split_order_by(settings.jql)
+    body = _strip_updated_clauses(body)
+    if body:
+        return f"{body} AND {updated_clause}{order_by}"
+    return f"{updated_clause}{order_by}"
+
+
+def _split_order_by(jql: str) -> tuple[str, str]:
+    match = re.search(r"(?i)\border\s+by\b", jql)
+    if not match:
+        return jql.strip(), ""
+    return jql[: match.start()].strip(), f" {jql[match.start():].strip()}"
+
+
+def _strip_updated_clauses(jql_body: str) -> str:
+    patterns = (
+        r"(?i)\s+AND\s+updated\s*(?:>=|>|<=|<)\s*(?:'[^']*'|\"[^\"]*\"|-\d+[mhdw]|\S+)",
+        r"(?i)^updated\s*(?:>=|>|<=|<)\s*(?:'[^']*'|\"[^\"]*\"|-\d+[mhdw]|\S+)\s*(?:AND\s+)?",
+    )
+    cleaned = jql_body
+    for pattern in patterns:
+        cleaned = re.sub(pattern, " ", cleaned)
+    return re.sub(r"\s{2,}", " ", cleaned).strip()
+
+
+def _format_jql_datetime(value: datetime) -> str:
+    return value.strftime("%Y-%m-%d %H:%M")
 
 
 def _convert_issue(raw_issue, settings: JiraSettings) -> Issue:
