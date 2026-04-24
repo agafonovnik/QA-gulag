@@ -8,7 +8,7 @@ from leadjira.config import JiraSettings
 from leadjira.mock_data import Issue, IssueEvent, MOCK_ISSUES
 
 
-def load_issues(settings: JiraSettings, selected_day: date) -> tuple[Issue, ...]:
+def load_issues(settings: JiraSettings, selected_day: date, target_status: str) -> tuple[Issue, ...]:
     if settings.source_mode.lower() != "jira":
         return MOCK_ISSUES
 
@@ -26,7 +26,7 @@ def load_issues(settings: JiraSettings, selected_day: date) -> tuple[Issue, ...]
     }
     jira_client = JIRA(options=options, token_auth=settings.api_token)
     issues = jira_client.search_issues(
-        jql_str=build_effective_jql(settings, selected_day),
+        jql_str=build_effective_jql(settings, selected_day, target_status),
         fields="summary,project,assignee,priority,created",
         expand="changelog",
         maxResults=settings.max_results,
@@ -34,16 +34,20 @@ def load_issues(settings: JiraSettings, selected_day: date) -> tuple[Issue, ...]
     return tuple(_convert_issue(jira_client, issue, settings) for issue in issues)
 
 
-def build_effective_jql(settings: JiraSettings, selected_day: date) -> str:
+def build_effective_jql(settings: JiraSettings, selected_day: date, target_status: str) -> str:
     start_at = datetime.combine(selected_day, time(hour=settings.workday_start_hour))
     end_at = start_at + timedelta(hours=settings.lookback_hours)
-    updated_clause = f'updated >= "{_format_jql_datetime(start_at)}" AND updated <= "{_format_jql_datetime(end_at)}"'
+    escaped_status = target_status.replace('"', '\\"')
+    transition_clause = (
+        f'(status CHANGED TO "{escaped_status}" AFTER "{_format_jql_datetime(start_at)}" BEFORE "{_format_jql_datetime(end_at)}" '
+        f'OR status CHANGED FROM "{escaped_status}" AFTER "{_format_jql_datetime(start_at)}" BEFORE "{_format_jql_datetime(end_at)}")'
+    )
 
     body, order_by = _split_order_by(settings.jql)
-    body = _strip_updated_clauses(body)
+    body = _strip_scope_clauses(body)
     if body:
-        return f"{body} AND {updated_clause}{order_by}"
-    return f"{updated_clause}{order_by}"
+        return f"{body} AND {transition_clause}{order_by}"
+    return f"{transition_clause}{order_by}"
 
 
 def _split_order_by(jql: str) -> tuple[str, str]:
@@ -53,10 +57,14 @@ def _split_order_by(jql: str) -> tuple[str, str]:
     return jql[: match.start()].strip(), f" {jql[match.start():].strip()}"
 
 
-def _strip_updated_clauses(jql_body: str) -> str:
+def _strip_scope_clauses(jql_body: str) -> str:
     patterns = (
         r"(?i)\s+AND\s+updated\s*(?:>=|>|<=|<)\s*(?:'[^']*'|\"[^\"]*\"|-\d+[mhdw]|\S+)",
         r"(?i)^updated\s*(?:>=|>|<=|<)\s*(?:'[^']*'|\"[^\"]*\"|-\d+[mhdw]|\S+)\s*(?:AND\s+)?",
+        r"(?i)\s+AND\s+statusCategory\s*(?:=|!=|IN|NOT IN)\s*(?:\([^)]+\)|'[^']*'|\"[^\"]*\"|\S+)",
+        r"(?i)^statusCategory\s*(?:=|!=|IN|NOT IN)\s*(?:\([^)]+\)|'[^']*'|\"[^\"]*\"|\S+)\s*(?:AND\s+)?",
+        r"(?i)\s+AND\s+status\s*(?:=|!=|IN|NOT IN)\s*(?:\([^)]+\)|'[^']*'|\"[^\"]*\"|\S+)",
+        r"(?i)^status\s*(?:=|!=|IN|NOT IN)\s*(?:\([^)]+\)|'[^']*'|\"[^\"]*\"|\S+)\s*(?:AND\s+)?",
     )
     cleaned = jql_body
     for pattern in patterns:
