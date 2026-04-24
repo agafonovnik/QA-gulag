@@ -30,6 +30,8 @@ python3 main.py
 - `LEADJIRA_VERIFY_SSL`
 - `LEADJIRA_MAX_RESULTS`
 - `LEADJIRA_STORY_POINTS_FIELD`
+- `LEADJIRA_LOOKBACK_HOURS`
+- `LEADJIRA_WORKDAY_START_HOUR`
 - `LEADJIRA_HOST`
 - `LEADJIRA_PORT`
 
@@ -44,7 +46,9 @@ export LEADJIRA_SOURCE=jira
 export LEADJIRA_JIRA_URL="https://your-jira.example.com"
 export LEADJIRA_JIRA_TOKEN="your-token"
 export LEADJIRA_DEFAULT_JQL='project = CORE ORDER BY updated DESC'
+export LEADJIRA_LOOKBACK_HOURS=12
+export LEADJIRA_WORKDAY_START_HOUR=9
 python3 main.py
 ```
 
-В режиме `jira` приложение использует библиотеку `jira`, создает клиент через `JIRA(options=..., token_auth=...)`, делает `search_issues(..., expand="changelog")` и строит таймлайн по истории переходов статусов.
+В режиме `jira` приложение использует библиотеку `jira`, создает клиент через `JIRA(options=..., token_auth=...)`, добавляет к JQL динамическое 12-часовое окно по выбранной дате и строит таймлайн по истории переходов статусов.
