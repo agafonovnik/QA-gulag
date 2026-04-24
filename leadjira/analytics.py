@@ -7,11 +7,18 @@ from statistics import mean
 from leadjira.mock_data import Issue
 
 
-def _end_of_segment(issue: Issue, start_index: int) -> datetime:
+def _fallback_segment_end(start_at: datetime, selected_day: date, current_time: datetime) -> datetime:
+    day_end = datetime.combine(selected_day, time.max)
+    if selected_day == current_time.date():
+        return max(start_at, min(current_time, day_end))
+    return max(start_at, day_end)
+
+
+def _end_of_segment(issue: Issue, start_index: int, selected_day: date, current_time: datetime) -> datetime:
     next_index = start_index + 1
     if next_index < len(issue.events):
         return issue.events[next_index].at
-    return issue.events[start_index].at + timedelta(minutes=45)
+    return _fallback_segment_end(issue.events[start_index].at, selected_day, current_time)
 
 
 def _next_status(issue: Issue, start_index: int, current_status: str) -> str:
@@ -34,7 +41,9 @@ def build_dashboard_data(
     people: set[str],
     target_status: str,
     group_mode: str,
+    current_time: datetime | None = None,
 ) -> dict:
+    now = current_time or datetime.now()
     segments_by_person: dict[str, list[dict]] = defaultdict(list)
     matching_projects: set[str] = set()
     assignees: set[str] = set()
@@ -65,7 +74,7 @@ def build_dashboard_data(
             if people and owner not in people:
                 continue
 
-            end_at = _end_of_segment(issue, index)
+            end_at = _end_of_segment(issue, index, selected_day, now)
             duration_minutes = max(int((end_at - event.at).total_seconds() // 60), 1)
             segments_by_person[owner].append(
                 {
