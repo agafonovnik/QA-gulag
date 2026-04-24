@@ -34,6 +34,10 @@ def _group_name(issue: Issue, event_author: str, group_mode: str) -> str:
     return event_author
 
 
+def _normalize_status(status: str) -> str:
+    return " ".join((status or "").strip().lower().split())
+
+
 def build_dashboard_data(
     issues: tuple[Issue, ...],
     selected_day: date,
@@ -44,6 +48,7 @@ def build_dashboard_data(
     current_time: datetime | None = None,
 ) -> dict:
     now = current_time or datetime.now()
+    normalized_target_status = _normalize_status(target_status)
     segments_by_person: dict[str, list[dict]] = defaultdict(list)
     matching_projects: set[str] = set()
     assignees: set[str] = set()
@@ -65,7 +70,7 @@ def build_dashboard_data(
         matching_projects.add(issue.project)
 
         for index, event in enumerate(issue.events):
-            if event.to_status != target_status:
+            if _normalize_status(event.to_status) != normalized_target_status:
                 continue
             if not (day_start <= event.at <= day_end):
                 continue
