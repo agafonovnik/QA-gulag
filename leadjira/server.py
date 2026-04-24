@@ -418,16 +418,46 @@ HTML = """<!DOCTYPE html>
     }
 
     .timeline-axis {
-      display: grid;
-      grid-template-columns: repeat(var(--hours), minmax(120px, 1fr));
-      gap: 0;
+      position: relative;
+      min-height: 28px;
       padding-left: 12px;
     }
 
-    .timeline-axis div {
-      position: relative;
-      padding-left: 10px;
-      border-left: 1px solid rgba(255, 255, 255, 0.09);
+    .axis-mark {
+      position: absolute;
+      top: 0;
+      transform: translateX(-50%);
+      white-space: nowrap;
+    }
+
+    .axis-mark::before {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: -2px;
+      width: 1px;
+      height: 24px;
+      transform: translateX(-50%);
+      background: rgba(255, 255, 255, 0.09);
+    }
+
+    .axis-mark.start {
+      transform: none;
+    }
+
+    .axis-mark.start::before {
+      left: 0;
+      transform: none;
+    }
+
+    .axis-mark.end {
+      transform: translateX(-100%);
+      text-align: right;
+    }
+
+    .axis-mark.end::before {
+      left: 100%;
+      transform: translateX(-100%);
     }
 
     .timeline-row + .timeline-row {
@@ -464,7 +494,7 @@ HTML = """<!DOCTYPE html>
           rgba(255, 255, 255, 0.06) 0,
           rgba(255, 255, 255, 0.06) 1px,
           transparent 1px,
-          transparent calc(100% / var(--hours))
+          transparent calc(100% / var(--intervals))
         );
       border: 1px solid rgba(255, 255, 255, 0.06);
       overflow: visible;
@@ -941,8 +971,13 @@ HTML = """<!DOCTYPE html>
 
     function renderAxis(hourMarks) {
       const axis = el("axis");
-      axis.style.setProperty("--hours", hourMarks.length);
-      axis.innerHTML = hourMarks.map((mark) => `<div>${mark}</div>`).join("");
+      const intervals = Math.max(hourMarks.length - 1, 1);
+      document.documentElement.style.setProperty("--intervals", intervals);
+      axis.innerHTML = hourMarks.map((mark, index) => {
+        const left = intervals === 0 ? 0 : (index / intervals) * 100;
+        const edgeClass = index === 0 ? "start" : index === hourMarks.length - 1 ? "end" : "";
+        return `<div class="axis-mark ${edgeClass}" style="left:${left}%">${mark}</div>`;
+      }).join("");
     }
 
     function renderTimeline(timeline) {
@@ -988,7 +1023,7 @@ HTML = """<!DOCTYPE html>
           const group = document.createElement("div");
           group.className = "task-group";
           group.style.left = `${left}%`;
-          group.style.width = `${Math.max(width, 8.5)}%`;
+          group.style.width = `${Math.max(width, 0.35)}%`;
           group.title = `${segment.issue_key}: ${segment.summary}`;
 
           const task = document.createElement("div");
