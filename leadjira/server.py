@@ -1216,9 +1216,9 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
         group_mode = params.get("group_mode", ["transition_author"])[0]
 
         try:
-            current_jql = build_effective_jql(SETTINGS, selected_day)
+            current_jql = build_effective_jql(SETTINGS, selected_day, target_status)
             payload = build_dashboard_data(
-                issues=load_issues(SETTINGS, selected_day),
+                issues=load_issues(SETTINGS, selected_day, target_status),
                 selected_day=selected_day,
                 projects=projects,
                 people=people,
