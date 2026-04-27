@@ -21,8 +21,7 @@ def load_issues(settings: JiraSettings, selected_day: date, target_status: str) 
         raise RuntimeError("Package 'jira' is not installed. Run: python3 -m pip install -r requirements.txt")
 
     options = {
-        "server": settings.base_url,
-        "verify": settings.verify_ssl,
+        "server": settings.base_url
     }
     jira_client = JIRA(options=options, token_auth=settings.api_token)
     issues = jira_client.search_issues(

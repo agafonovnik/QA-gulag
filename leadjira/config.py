@@ -15,7 +15,6 @@ class JiraSettings:
     )
     target_status: str = os.getenv("LEADJIRA_TARGET_STATUS", "Testing")
     timezone: str = os.getenv("LEADJIRA_TIMEZONE", "Europe/Moscow")
-    verify_ssl: bool = os.getenv("LEADJIRA_VERIFY_SSL", "true").lower() == "true"
     max_results: int = int(os.getenv("LEADJIRA_MAX_RESULTS", "100"))
     story_points_field: str = os.getenv("LEADJIRA_STORY_POINTS_FIELD", "customfield_10016")
     lookback_hours: int = int(os.getenv("LEADJIRA_LOOKBACK_HOURS", "12"))
@@ -25,3 +24,9 @@ class JiraSettings:
 
 
 SETTINGS = JiraSettings()
+
+#Класть всё в одну строку на таймлайне, если не умещается то выводить описание на наведении мышки в всплывашке
+#Убрать ssl
+#Уметь за неделю отображаться инфу по выбранным людям с разделением на дни
+#Помечать задача ноу мануал куа серым
+#Уметь трекать 2 статуса сразу
