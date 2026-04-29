@@ -11,7 +11,7 @@ class JiraSettings:
     api_token: str = os.getenv("LEADJIRA_JIRA_TOKEN", "set-me")
     jql: str = os.getenv(
         "LEADJIRA_DEFAULT_JQL",
-        "project in (CORE, API, UI) AND statusCategory != Done ORDER BY updated DESC",
+        "project in (CORE, API, UI)",
     )
     target_status: str = os.getenv("LEADJIRA_TARGET_STATUS", "Testing")
     timezone: str = os.getenv("LEADJIRA_TIMEZONE", "Europe/Moscow")
@@ -24,9 +24,3 @@ class JiraSettings:
 
 
 SETTINGS = JiraSettings()
-
-#Класть всё в одну строку на таймлайне, если не умещается то выводить описание на наведении мышки в всплывашке
-#Убрать ssl
-#Уметь за неделю отображаться инфу по выбранным людям с разделением на дни
-#Помечать задача ноу мануал куа серым
-#Уметь трекать 2 статуса сразу

@@ -141,6 +141,51 @@ HTML = """<!DOCTYPE html>
       z-index: 20;
     }
 
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(3, 10, 18, 0.48);
+      backdrop-filter: blur(8px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 160ms ease;
+      z-index: 40;
+    }
+
+    .loading-overlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .loading-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 18px;
+      border-radius: 18px;
+      background: rgba(9, 19, 35, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: var(--shadow);
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .spinner {
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.18);
+      border-top-color: var(--cyan);
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
     body.menu-open .sidebar-overlay {
       opacity: 1;
       pointer-events: auto;
@@ -520,7 +565,16 @@ HTML = """<!DOCTYPE html>
 
     .task-group {
       position: absolute;
-      height: 82px;
+      height: 60px;
+      z-index: 2;
+    }
+
+    .task-link {
+      position: absolute;
+      inset: 0;
+      display: block;
+      color: inherit;
+      text-decoration: none;
     }
 
     .task {
@@ -538,6 +592,20 @@ HTML = """<!DOCTYPE html>
       font-weight: 800;
       overflow: hidden;
       box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    }
+
+    .task.marker {
+      min-height: 18px;
+      height: 18px;
+      padding: 0;
+      border-radius: 999px;
+      display: block;
+      box-shadow: 0 10px 18px rgba(0, 0, 0, 0.22);
+    }
+
+    .task.marker .task-key,
+    .task.marker .task-meta {
+      display: none;
     }
 
     .task.spills-over::after {
@@ -561,6 +629,12 @@ HTML = """<!DOCTYPE html>
       pointer-events: none;
     }
 
+    .task.marker.spills-over::after {
+      top: 2px;
+      bottom: 2px;
+      width: 10px;
+    }
+
     .task .task-key {
       font-size: 17px;
       line-height: 1;
@@ -576,27 +650,71 @@ HTML = """<!DOCTYPE html>
       white-space: nowrap;
     }
 
-    .task-status {
+    .task-badge {
       position: absolute;
       right: -10px;
-      bottom: 2px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: max-content;
-      max-width: 220px;
-      padding: 6px 11px;
+      bottom: -4px;
+      max-width: 92px;
+      padding: 5px 9px;
       border-radius: 999px;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 900;
       line-height: 1;
       letter-spacing: 0.04em;
       text-align: center;
       white-space: nowrap;
-      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.34);
+      overflow: hidden;
+      text-overflow: ellipsis;
       border: 1px solid transparent;
-      backdrop-filter: blur(0);
-      z-index: 3;
+      box-shadow: 0 16px 28px rgba(0, 0, 0, 0.28);
+      z-index: 5;
+    }
+
+    .task-tooltip {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 10px);
+      transform: translateX(-50%) translateY(6px);
+      width: 240px;
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: rgba(7, 17, 31, 0.96);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+      color: var(--text);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 140ms ease, transform 140ms ease;
+      z-index: 8;
+    }
+
+    .task-group:hover .task-tooltip {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .task-tooltip strong {
+      display: block;
+      font-size: 13px;
+      line-height: 1.25;
+    }
+
+    .task-tooltip p {
+      margin: 8px 0 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--muted);
+    }
+
+    .task-tooltip .tooltip-status {
+      display: inline-flex;
+      margin-top: 10px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      border: 1px solid transparent;
     }
 
     .task.compact {
@@ -624,10 +742,11 @@ HTML = """<!DOCTYPE html>
       font-size: 9px;
     }
 
-    .task.tight + .task-status,
-    .task.compact + .task-status {
-      font-size: 9px;
-      padding: 5px 9px;
+    .task.tight .task-badge,
+    .task.compact .task-badge {
+      max-width: 62px;
+      font-size: 8px;
+      padding: 4px 6px;
     }
 
     .gap {
@@ -679,7 +798,7 @@ HTML = """<!DOCTYPE html>
     .pill.project { background: rgba(82, 209, 255, 0.14); color: var(--cyan); }
     .pill.priority { background: rgba(247, 198, 108, 0.16); color: var(--gold); }
     .pill.outcome,
-    .task-status {
+    .task-tooltip .tooltip-status {
       border-style: solid;
     }
 
@@ -795,6 +914,12 @@ HTML = """<!DOCTYPE html>
 </head>
 <body>
   <div id="sidebarOverlay" class="sidebar-overlay"></div>
+  <div id="loadingOverlay" class="loading-overlay" aria-hidden="true">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <div>Загружаю и строю таймлайн…</div>
+    </div>
+  </div>
   <div class="shell">
     <div class="topbar">
       <button id="menuToggle" class="menu-toggle" type="button" aria-label="Открыть фильтры">
@@ -901,6 +1026,7 @@ HTML = """<!DOCTYPE html>
       selectedPeople: new Set(),
       options: null,
       lastData: null,
+      isLoading: false,
     };
 
     const palette = ["#61f4c7", "#52d1ff", "#f7c66c", "#ff8b9d", "#8ea7ff", "#8ff0ff"];
@@ -962,6 +1088,13 @@ HTML = """<!DOCTYPE html>
         }
       });
       container.appendChild(button);
+    }
+
+    function setLoading(value) {
+      state.isLoading = value;
+      el("loadingOverlay").classList.toggle("visible", value);
+      el("applyBtn").disabled = value;
+      el("resetBtn").disabled = value;
     }
 
     function renderFilterOptions(filters) {
@@ -1040,53 +1173,37 @@ HTML = """<!DOCTYPE html>
 
         const laneInner = wrapper.querySelector(".lane-inner");
         const laneWidth = laneInner.getBoundingClientRect().width || 1;
-        const levelWidth = [];
-        const levelHeight = 82;
+        const levelRightEdge = [];
+        const levelHeight = 66;
         const lanePlacements = row.segments.map((segment, segmentIndex) => {
           const startMs = new Date(segment.start_iso).getTime();
           const endMs = new Date(segment.end_iso).getTime();
           const actualLeftPx = ((startMs - start) / total) * laneWidth;
           const actualWidthPx = Math.max(((endMs - startMs) / total) * laneWidth, 4);
-          const density = actualWidthPx < 82 ? "tight" : actualWidthPx < 148 ? "compact" : "full";
-          const visualWidthPx =
-            density === "tight" ? Math.max(actualWidthPx, 104) :
-            density === "compact" ? Math.max(actualWidthPx, 136) :
-            actualWidthPx;
-          const outcomeLabel = buildOutcomeLabel(segment.next_status);
-          const statusWidthPx = Math.min(
-            176,
-            Math.max(density === "tight" ? 72 : 88, outcomeLabel.length * (density === "tight" ? 5.4 : 6.3) + 24)
-          );
-          const clampedLeftPx = Math.min(
-            Math.max(actualLeftPx, 0),
-            Math.max(laneWidth - visualWidthPx - 2, 0)
-          );
-          const footprintStart = Math.min(clampedLeftPx, clampedLeftPx + visualWidthPx - statusWidthPx - 10);
-          const footprintEnd = clampedLeftPx + visualWidthPx + 10;
+          const density = actualWidthPx < 72 ? "marker" : actualWidthPx < 132 ? "compact" : "full";
           let level = 0;
-          while (levelWidth[level] !== undefined && footprintStart < levelWidth[level] + 8) {
+          while (levelRightEdge[level] !== undefined && actualLeftPx < levelRightEdge[level] - 0.5) {
             level += 1;
           }
-          levelWidth[level] = footprintEnd;
+          levelRightEdge[level] = actualLeftPx + actualWidthPx;
           return {
             segment,
             segmentIndex,
             density,
-            outcomeLabel,
-            leftPx: clampedLeftPx,
-            widthPx: visualWidthPx,
+            leftPx: Math.max(actualLeftPx, 0),
+            widthPx: actualWidthPx,
             topPx: level * levelHeight,
             level,
           };
         });
 
         const levelCount = Math.max(...lanePlacements.map((item) => item.level), 0) + 1;
-        const gapTopPx = 14 + levelCount * levelHeight;
-        wrapper.querySelector(".lane").style.minHeight = `${Math.max(168, gapTopPx + 52)}px`;
+        const gapBaseTopPx = 14 + levelCount * levelHeight;
 
         lanePlacements.forEach((placement) => {
-          const { segment, segmentIndex, density, outcomeLabel, leftPx, widthPx, topPx } = placement;
+          const { segment, segmentIndex, density, leftPx, widthPx, topPx } = placement;
           const color = palette[(rowIndex + segmentIndex) % palette.length];
+          const outcomeLabel = buildOutcomeLabel(segment.next_status);
           const group = document.createElement("div");
           group.className = "task-group";
           group.style.left = `${leftPx}px`;
@@ -1094,33 +1211,61 @@ HTML = """<!DOCTYPE html>
           group.style.width = `${widthPx}px`;
           group.title = `${segment.issue_key}: ${segment.summary}`;
 
+          const link = document.createElement("a");
+          link.className = "task-link";
+          link.href = `__BASE_URL__/browse/${segment.issue_key}`;
+          link.target = "_blank";
+          link.rel = "noreferrer noopener";
+
           const task = document.createElement("div");
           task.className = "task";
           task.style.width = "100%";
           task.style.background = `linear-gradient(135deg, ${color}, #ffffff)`;
           if (density !== "full") task.classList.add(density);
           if (segment.spills_over_day) task.classList.add("spills-over");
-          task.innerHTML = `
-            <span class="task-key">${segment.issue_key}</span>
-            <span class="task-meta">${buildTaskMeta(segment, density)}</span>
+          if (density !== "marker") {
+            task.innerHTML = `
+              <span class="task-key">${segment.issue_key}</span>
+              <span class="task-meta">${buildTaskMeta(segment, density)}</span>
+            `;
+          }
+          if (density !== "marker") {
+            const badge = document.createElement("div");
+            badge.className = `task-badge ${getOutcomeTone(segment.next_status)}`;
+            badge.textContent = outcomeLabel;
+            group.appendChild(badge);
+          }
+          const tooltip = document.createElement("div");
+          tooltip.className = "task-tooltip";
+          tooltip.innerHTML = `
+            <strong>${segment.issue_key} · ${segment.summary}</strong>
+            <p>${segment.range_label} · ${formatMinutes(segment.duration_minutes)}</p>
+            <p>Исполнитель: ${segment.assignee}. Перевел в статус: ${segment.actor}.</p>
+            <span class="tooltip-status ${getOutcomeTone(segment.next_status)}">${outcomeLabel}</span>
           `;
-          const status = document.createElement("div");
-          status.className = `task-status ${getOutcomeTone(segment.next_status)}`;
-          status.textContent = outcomeLabel;
-          status.title = `После Testing: ${segment.next_status}`;
-          group.appendChild(task);
-          group.appendChild(status);
+          link.appendChild(task);
+          group.appendChild(link);
+          group.appendChild(tooltip);
           laneInner.appendChild(group);
         });
 
+        const gapRightEdge = [];
+        const gapLevelHeight = 34;
         row.segments.forEach((segment) => {
           if (segment.gap_minutes > 0) {
             const gapStartPx = ((new Date(segment.start_iso).getTime() - start) / total) * laneWidth;
+            const gapWidthPx = 74;
+            const gapLeftPx = Math.max(gapStartPx - 28, 0);
+            let gapLevel = 0;
+            while (gapRightEdge[gapLevel] !== undefined && gapLeftPx < gapRightEdge[gapLevel] + 6) {
+              gapLevel += 1;
+            }
+            gapRightEdge[gapLevel] = gapLeftPx + gapWidthPx;
             const gap = document.createElement("div");
             gap.className = "gap";
-            gap.style.top = `${gapTopPx}px`;
-            gap.style.left = `${Math.max(gapStartPx - 28, 0)}px`;
-            gap.style.width = "74px";
+            gap.style.top = `${gapBaseTopPx + gapLevel * gapLevelHeight}px`;
+            gap.style.left = `${gapLeftPx}px`;
+            gap.style.width = `${gapWidthPx}px`;
             gap.textContent = `${segment.gap_minutes}m gap`;
             laneInner.appendChild(gap);
           }
@@ -1138,10 +1283,14 @@ HTML = """<!DOCTYPE html>
           `;
           issuesGrid.appendChild(issueCard);
         });
+
+        const gapLevelCount = Math.max(gapRightEdge.length, 1);
+        wrapper.querySelector(".lane").style.minHeight = `${Math.max(168, gapBaseTopPx + gapLevelCount * gapLevelHeight + 18)}px`;
       });
     }
 
     async function fetchDashboard() {
+      setLoading(true);
       const params = new URLSearchParams();
       params.set("date", el("dayInput").value);
       params.set("target_status", el("statusInput").value.trim() || "Testing");
@@ -1149,20 +1298,24 @@ HTML = """<!DOCTYPE html>
       state.selectedProjects.forEach((value) => params.append("projects", value));
       state.selectedPeople.forEach((value) => params.append("people", value));
 
-      const response = await fetch(`/api/dashboard-data?${params.toString()}`);
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+      try {
+        const response = await fetch(`/api/dashboard-data?${params.toString()}`);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+        const data = await response.json();
+        state.lastData = data;
+        renderFilterOptions(data.filters);
+        renderSummary(data.summary, data.filters);
+        renderAxis(data.timeline.hour_marks);
+        renderTimeline(data.timeline);
+        el("timelineSubtitle").textContent =
+          `Окно ${data.timeline.hour_marks[0]}-${data.timeline.hour_marks[data.timeline.hour_marks.length - 1]} по локальному времени.`;
+        setMenuOpen(false);
+      } finally {
+        setLoading(false);
       }
-      const data = await response.json();
-      state.lastData = data;
-      renderFilterOptions(data.filters);
-      renderSummary(data.summary, data.filters);
-      renderAxis(data.timeline.hour_marks);
-      renderTimeline(data.timeline);
-      el("timelineSubtitle").textContent =
-        `Окно ${data.timeline.hour_marks[0]}-${data.timeline.hour_marks[data.timeline.hour_marks.length - 1]} по локальному времени.`;
-      setMenuOpen(false);
     }
 
     function resetFilters() {
@@ -1230,7 +1383,7 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
 
     def _send_dashboard_data(self, query: str) -> None:
         params = parse_qs(query)
-        raw_date = params.get("date", [date(2026, 4, 24).isoformat()])[0]
+        raw_date = params.get("date", [date.today().isoformat()])[0]
         selected_day = date.fromisoformat(raw_date)
         projects = set(params.get("projects", []))
         people = set(params.get("people", []))
