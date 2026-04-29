@@ -7,7 +7,7 @@ from dataclasses import dataclass
 @dataclass(frozen=True)
 class JiraSettings:
     source_mode: str = os.getenv("LEADJIRA_SOURCE", "mock")
-    base_url: str = os.getenv("LEADJIRA_JIRA_URL", "https://your-jira.example.com")
+    base_url: str = os.getenv("LEADJIRA_JIRA_URL", "https://your-jira.example.com").rstrip('/')
     api_token: str = os.getenv("LEADJIRA_JIRA_TOKEN", "set-me")
     jql: str = os.getenv(
         "LEADJIRA_DEFAULT_JQL",
