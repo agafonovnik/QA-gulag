@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlparse
 
 from leadjira.analytics import build_dashboard_data
 from leadjira.config import SETTINGS
-from leadjira.jira_provider import build_effective_jql, load_issues
+from leadjira.jira_provider import build_effective_jql, load_issue_history, load_issues
 
 
 HTML = """<!DOCTYPE html>
@@ -360,6 +360,217 @@ HTML = """<!DOCTYPE html>
       display: grid;
       gap: 24px;
     }
+
+    .view-tabs {
+      width: fit-content;
+      max-width: 100%;
+      padding: 6px;
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+    }
+
+    .view-tab {
+      min-height: 42px;
+      padding: 10px 16px;
+      border: 0;
+      border-radius: 14px;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .view-tab.active {
+      color: #04111b;
+      background: linear-gradient(135deg, var(--teal), var(--cyan));
+      box-shadow: 0 10px 24px rgba(82, 209, 255, 0.16);
+    }
+
+    .app-view { display: none; }
+    .app-view.active {
+      display: grid;
+      gap: 24px;
+      animation: view-in 220ms ease both;
+    }
+
+    @keyframes view-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .history-search-panel {
+      padding: 26px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .history-search-panel::after {
+      content: "";
+      position: absolute;
+      width: 340px;
+      height: 340px;
+      right: -110px;
+      top: -180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(97, 244, 199, 0.18), transparent 68%);
+      pointer-events: none;
+    }
+
+    .history-search-copy, .issue-search { position: relative; z-index: 1; }
+    .history-search-copy h2 {
+      margin: 12px 0 0;
+      font-size: clamp(27px, 4vw, 40px);
+      line-height: 1.08;
+    }
+    .history-search-copy p {
+      max-width: 720px;
+      margin: 10px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .issue-search {
+      display: grid;
+      grid-template-columns: minmax(220px, 1fr) auto;
+      gap: 12px;
+      margin-top: 24px;
+      max-width: 860px;
+    }
+    .issue-search .control {
+      min-width: 0;
+      min-height: 50px;
+      background: rgba(255, 255, 255, 0.065);
+    }
+    .issue-search .btn {
+      width: auto;
+      min-width: 190px;
+      margin-top: 0;
+      padding-inline: 22px;
+    }
+
+    .history-result { min-width: 0; }
+    .history-overview {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 22px;
+      align-items: start;
+      padding: 26px;
+    }
+    .history-heading { min-width: 0; }
+    .history-key {
+      display: inline-flex;
+      color: var(--cyan);
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+    .history-heading h2 {
+      margin: 10px 0 0;
+      max-width: 900px;
+      font-size: clamp(24px, 3vw, 34px);
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+    .history-heading p {
+      margin: 12px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+    .current-status {
+      max-width: 260px;
+      padding: 12px 15px;
+      border-radius: 16px;
+      background: #0f4d42;
+      border: 1px solid #2d8f7b;
+      color: #d9fff4;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.25;
+      text-align: center;
+      overflow-wrap: anywhere;
+    }
+
+    .history-board { padding: 26px; }
+    .history-list {
+      position: relative;
+      margin-top: 24px;
+      padding-left: 30px;
+    }
+    .history-list::before {
+      content: "";
+      position: absolute;
+      top: 14px;
+      bottom: 14px;
+      left: 8px;
+      width: 2px;
+      border-radius: 999px;
+      background: linear-gradient(var(--cyan), var(--teal));
+      opacity: 0.5;
+    }
+    .history-transition {
+      position: relative;
+      display: grid;
+      grid-template-columns: minmax(250px, 0.9fr) minmax(320px, 1.5fr);
+      gap: 18px;
+      padding: 18px;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.065);
+    }
+    .history-transition + .history-transition { margin-top: 12px; }
+    .history-transition::before {
+      content: "";
+      position: absolute;
+      left: -28px;
+      top: 24px;
+      width: 12px;
+      height: 12px;
+      border: 3px solid #07111f;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 0 3px rgba(82, 209, 255, 0.2);
+    }
+    .transition-time strong, .transition-time span { display: block; }
+    .transition-time strong { font-size: 15px; }
+    .transition-time span {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
+    }
+    .status-path {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 9px;
+    }
+    .status-node {
+      max-width: 100%;
+      padding: 8px 11px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.07);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #dce9f7;
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+    .status-node.destination {
+      background: rgba(97, 244, 199, 0.12);
+      border-color: rgba(97, 244, 199, 0.28);
+      color: #d9fff4;
+    }
+    .status-arrow { color: var(--teal); font-weight: 900; }
 
     .hero {
       padding: 20px 22px;
@@ -909,6 +1120,15 @@ HTML = """<!DOCTYPE html>
       .meta-grid {
         grid-template-columns: 1fr 1fr;
       }
+
+      .issue-search, .history-overview, .history-transition { grid-template-columns: 1fr; }
+      .issue-search .btn { width: 100%; }
+      .current-status {
+        max-width: 100%;
+        justify-self: start;
+        text-align: left;
+      }
+      .history-search-panel, .history-overview, .history-board { padding: 20px; }
     }
   </style>
 </head>
@@ -981,6 +1201,12 @@ HTML = """<!DOCTYPE html>
     </aside>
 
     <main class="main">
+      <nav class="panel view-tabs" aria-label="Разделы приложения">
+        <button class="view-tab active" type="button" data-view="dashboardView">Командный timeline</button>
+        <button class="view-tab" type="button" data-view="historyView">История задачи</button>
+      </nav>
+
+      <div id="dashboardView" class="app-view active">
       <section class="panel hero">
         <div class="hero-grid">
           <div class="hero-copy">
@@ -1017,6 +1243,24 @@ HTML = """<!DOCTYPE html>
         </div>
         <div id="issuesGrid" class="issues"></div>
       </section>
+      </div>
+
+      <div id="historyView" class="app-view">
+        <section class="panel history-search-panel">
+          <div class="history-search-copy">
+            <span class="eyebrow">Issue Journey</span>
+            <h2>Полная история статусов задачи</h2>
+            <p>Вставьте ключ задачи или ссылку из Jira. Мы покажем все переходы, кто их выполнил и сколько задача находилась в исходном статусе.</p>
+          </div>
+          <form id="issueHistoryForm" class="issue-search">
+            <input id="issueReferenceInput" class="control" type="text" placeholder="CORE-1848 или https://jira.example.com/browse/CORE-1848" autocomplete="off" aria-label="Ключ или ссылка на задачу">
+            <button id="buildHistoryBtn" class="btn" type="submit">Построить timeline</button>
+          </form>
+        </section>
+        <div id="historyResult" class="history-result">
+          <div class="empty">Введите задачу выше. В mock-режиме можно использовать CORE-1848 или API-901.</div>
+        </div>
+      </div>
     </main>
   </div>
 
@@ -1041,6 +1285,25 @@ HTML = """<!DOCTYPE html>
       if (hours && minutes) return `${hours}h ${minutes}m`;
       if (hours) return `${hours}h`;
       return `${minutes}m`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function formatDateTime(value) {
+      return new Intl.DateTimeFormat("ru-RU", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(value));
     }
 
     function buildTaskMeta(segment, density) {
@@ -1095,6 +1358,78 @@ HTML = """<!DOCTYPE html>
       el("loadingOverlay").classList.toggle("visible", value);
       el("applyBtn").disabled = value;
       el("resetBtn").disabled = value;
+      el("buildHistoryBtn").disabled = value;
+    }
+
+    function setActiveView(viewId) {
+      document.querySelectorAll(".app-view").forEach((view) => {
+        view.classList.toggle("active", view.id === viewId);
+      });
+      document.querySelectorAll(".view-tab").forEach((tab) => {
+        const isActive = tab.dataset.view === viewId;
+        tab.classList.toggle("active", isActive);
+        tab.setAttribute("aria-selected", String(isActive));
+      });
+      el("menuToggle").setAttribute("aria-label", viewId === "dashboardView" ? "Открыть фильтры" : "Открыть настройки");
+    }
+
+    function renderIssueHistory(issue) {
+      const transitions = issue.transitions.map((transition) => `
+        <article class="history-transition">
+          <div class="transition-time">
+            <strong>${escapeHtml(formatDateTime(transition.at_iso))}</strong>
+            <span>${escapeHtml(transition.author)}</span>
+            <span>В статусе до перехода: ${escapeHtml(transition.time_in_source_label)}</span>
+          </div>
+          <div class="status-path">
+            <span class="status-node">${escapeHtml(transition.from_status)}</span>
+            <span class="status-arrow" aria-hidden="true">→</span>
+            <span class="status-node destination">${escapeHtml(transition.to_status)}</span>
+          </div>
+        </article>
+      `).join("");
+
+      el("historyResult").innerHTML = `
+        <section class="panel history-overview">
+          <div class="history-heading">
+            <a class="history-key" href="${escapeHtml(issue.issue_url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(issue.key)} ↗</a>
+            <h2>${escapeHtml(issue.summary)}</h2>
+            <p>${escapeHtml(issue.project)} · ${escapeHtml(issue.assignee)} · создана ${escapeHtml(formatDateTime(issue.created_at_iso))}</p>
+          </div>
+          <div class="current-status ${getOutcomeTone(issue.current_status)}">Сейчас: ${escapeHtml(issue.current_status)}</div>
+        </section>
+        <section class="panel history-board">
+          <div class="section-title">
+            <div>
+              <h3>Путь по статусам</h3>
+              <p>${issue.transitions.length} переходов в changelog задачи.</p>
+            </div>
+          </div>
+          ${transitions ? `<div class="history-list">${transitions}</div>` : '<div class="empty">В changelog задачи нет переходов статусов.</div>'}
+        </section>
+      `;
+    }
+
+    async function fetchIssueHistory() {
+      const issueReference = el("issueReferenceInput").value.trim();
+      if (!issueReference) {
+        el("historyResult").innerHTML = '<div class="empty">Введите ключ задачи или ссылку из Jira.</div>';
+        el("issueReferenceInput").focus();
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ issue: issueReference });
+        const response = await fetch(`/api/issue-history?${params.toString()}`);
+        const data = await response.json().catch(() => ({ error: "Не удалось прочитать ответ сервера" }));
+        if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+        renderIssueHistory(data);
+      } catch (error) {
+        el("historyResult").innerHTML = `<div class="empty">Ошибка загрузки: ${escapeHtml(error.message)}</div>`;
+      } finally {
+        setLoading(false);
+      }
     }
 
     function renderFilterOptions(filters) {
@@ -1335,6 +1670,13 @@ HTML = """<!DOCTYPE html>
       state.selectedPeople.clear();
       fetchDashboard();
     });
+    el("issueHistoryForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      fetchIssueHistory();
+    });
+    document.querySelectorAll(".view-tab").forEach((tab) => {
+      tab.addEventListener("click", () => setActiveView(tab.dataset.view));
+    });
 
     function setMenuOpen(value) {
       document.body.classList.toggle("menu-open", value);
@@ -1365,6 +1707,9 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/dashboard-data":
             self._send_dashboard_data(parsed.query)
             return
+        if parsed.path == "/api/issue-history":
+            self._send_issue_history(parsed.query)
+            return
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
 
     def log_message(self, format: str, *args) -> None:
@@ -1381,6 +1726,52 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_issue_history(self, query: str) -> None:
+        issue_reference = parse_qs(query).get("issue", [""])[0]
+        try:
+            issue = load_issue_history(SETTINGS, issue_reference)
+            transitions = []
+            previous_at = issue.created_at
+            for event in issue.events:
+                duration_minutes = max(int((event.at - previous_at).total_seconds() // 60), 0)
+                transitions.append(
+                    {
+                        "at_iso": event.at.isoformat(),
+                        "from_status": event.from_status,
+                        "to_status": event.to_status,
+                        "author": event.author,
+                        "time_in_source_minutes": duration_minutes,
+                        "time_in_source_label": _format_duration(duration_minutes),
+                    }
+                )
+                previous_at = event.at
+
+            payload = {
+                "key": issue.key,
+                "summary": issue.summary,
+                "project": issue.project,
+                "assignee": issue.assignee,
+                "priority": issue.priority,
+                "created_at_iso": issue.created_at.isoformat(),
+                "current_status": issue.events[-1].to_status if issue.events else "Статус неизвестен",
+                "issue_url": f"{SETTINGS.base_url.rstrip('/')}/browse/{issue.key}",
+                "transitions": transitions,
+            }
+            status = HTTPStatus.OK
+        except ValueError as exc:
+            payload = {"error": str(exc)}
+            status = HTTPStatus.BAD_REQUEST
+        except Exception as exc:
+            payload = {"error": str(exc)}
+            status = HTTPStatus.INTERNAL_SERVER_ERROR
+
+        body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
     def _send_dashboard_data(self, query: str) -> None:
         params = parse_qs(query)
         raw_date = params.get("date", [date.today().isoformat()])[0]
@@ -1413,6 +1804,19 @@ class LeadJiraHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+
+def _format_duration(minutes: int) -> str:
+    days, remainder = divmod(minutes, 24 * 60)
+    hours, remaining_minutes = divmod(remainder, 60)
+    parts = []
+    if days:
+        parts.append(f"{days}д")
+    if hours:
+        parts.append(f"{hours}ч")
+    if remaining_minutes or not parts:
+        parts.append(f"{remaining_minutes}м")
+    return " ".join(parts)
 
 
 def run() -> None:

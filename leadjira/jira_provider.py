@@ -8,6 +8,9 @@ from leadjira.config import JiraSettings
 from leadjira.mock_data import Issue, IssueEvent, MOCK_ISSUES
 
 
+ISSUE_KEY_PATTERN = re.compile(r"(?i)(?<![A-Z0-9_])([A-Z][A-Z0-9_]*-\d+)(?![A-Z0-9_])")
+
+
 def load_issues(settings: JiraSettings, selected_day: date, target_status: str) -> tuple[Issue, ...]:
     if settings.source_mode.lower() != "jira":
         return MOCK_ISSUES
@@ -31,6 +34,38 @@ def load_issues(settings: JiraSettings, selected_day: date, target_status: str) 
         maxResults=settings.max_results,
     )
     return tuple(_convert_issue(jira_client, issue, settings) for issue in issues)
+
+
+def load_issue_history(settings: JiraSettings, issue_reference: str) -> Issue:
+    issue_key = extract_issue_key(issue_reference)
+    if settings.source_mode.lower() != "jira":
+        for issue in MOCK_ISSUES:
+            if issue.key.upper() == issue_key:
+                return issue
+        raise ValueError(f"Mock-задача {issue_key} не найдена. Попробуйте CORE-1848 или API-901.")
+
+    if not settings.base_url or not settings.api_token:
+        raise RuntimeError("Jira mode requires LEADJIRA_JIRA_URL and LEADJIRA_JIRA_TOKEN.")
+
+    try:
+        from jira import JIRA
+    except ImportError:
+        raise RuntimeError("Package 'jira' is not installed. Run: python3 -m pip install -r requirements.txt")
+
+    jira_client = JIRA(options={"server": settings.base_url}, token_auth=settings.api_token)
+    raw_issue = jira_client.issue(
+        issue_key,
+        fields="summary,project,assignee,priority,created",
+        expand="changelog",
+    )
+    return _convert_issue(jira_client, raw_issue, settings)
+
+
+def extract_issue_key(issue_reference: str) -> str:
+    match = ISSUE_KEY_PATTERN.search(issue_reference.strip())
+    if not match:
+        raise ValueError("Введите ключ задачи, например CORE-1848, или полную ссылку на нее в Jira.")
+    return match.group(1).upper()
 
 
 def build_effective_jql(settings: JiraSettings, selected_day: date, target_status: str) -> str:
